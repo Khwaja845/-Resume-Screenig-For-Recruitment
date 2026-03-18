@@ -1,5 +1,4 @@
 flask
 docx2txt
 PyPDF2
-spacy
 nltk

@@ -2,12 +2,23 @@ from flask import Flask, render_template, request
 import docx2txt
 import PyPDF2
 import spacy
-import spacy.cli
 from nltk.tokenize import word_tokenize
+import nltk
 import os
-spacy.cli.download("en_core_web_sm")
+
 app = Flask(__name__)
-nlp = spacy.load("en_core_web_sm")
+
+# ✅ Fix NLTK
+nltk.download('punkt')
+
+# ❌ REMOVE runtime download
+# spacy.cli.download("en_core_web_sm")
+
+# ✅ Load safely
+try:
+    nlp = spacy.load("en_core_web_sm")
+except:
+    nlp = None  # fallback (avoid crash)
 
 REQUIRED_SKILLS = {"python", "machine learning", "data analysis", "nlp", "sql"}
 REQUIRED_EDUCATION = {"bachelor", "master", "phd"}
@@ -20,7 +31,9 @@ def extract_text_from_pdf(pdf_path):
     with open(pdf_path, "rb") as file:
         reader = PyPDF2.PdfReader(file)
         for page in reader.pages:
-            text += page.extract_text() + " "
+            page_text = page.extract_text()
+            if page_text:   # ✅ Fix None error
+                text += page_text + " "
     return text
 
 def extract_text_from_docx(docx_path):
@@ -28,7 +41,11 @@ def extract_text_from_docx(docx_path):
 
 def screen_resume(resume_text):
     resume_text = resume_text.lower()
-    tokens = set(word_tokenize(resume_text))
+
+    try:
+        tokens = set(word_tokenize(resume_text))
+    except:
+        tokens = set(resume_text.split())  # fallback
 
     matched_skills = REQUIRED_SKILLS.intersection(tokens)
     matched_education = REQUIRED_EDUCATION.intersection(tokens)
@@ -46,20 +63,24 @@ def index():
     result = None
 
     if request.method == "POST":
-        file = request.files["resume"]
+        try:
+            file = request.files["resume"]
 
-        if file:
-            file_path = os.path.join(UPLOAD_FOLDER, file.filename)
-            file.save(file_path)
+            if file:
+                file_path = os.path.join(UPLOAD_FOLDER, file.filename)
+                file.save(file_path)
 
-            if file.filename.endswith(".pdf"):
-                text = extract_text_from_pdf(file_path)
-            elif file.filename.endswith(".docx"):
-                text = extract_text_from_docx(file_path)
-            else:
-                return "Unsupported file format"
+                if file.filename.endswith(".pdf"):
+                    text = extract_text_from_pdf(file_path)
+                elif file.filename.endswith(".docx"):
+                    text = extract_text_from_docx(file_path)
+                else:
+                    return "Unsupported file format"
 
-            result = screen_resume(text)
+                result = screen_resume(text)
+
+        except Exception as e:
+            return f"Error: {str(e)}"  # ✅ shows real error
 
     return render_template("index.html", result=result)
 

@@ -2,9 +2,10 @@ from flask import Flask, render_template, request
 import docx2txt
 import PyPDF2
 import spacy
+import spacy.cli
 from nltk.tokenize import word_tokenize
 import os
-
+spacy.cli.download("en_core_web_sm")
 app = Flask(__name__)
 nlp = spacy.load("en_core_web_sm")
 
